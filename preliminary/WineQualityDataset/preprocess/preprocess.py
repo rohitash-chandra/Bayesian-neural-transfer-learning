@@ -9,7 +9,7 @@ def getdata(file):
     y = data[:, data.shape[1]-1].astype(int)
     yd = np.identity(10)
     yd = np.vstack([[0 for i in range(10)], yd])
-    y = yd[y - 1, :]
+    y = yd[y, :]
 
     sc_X = StandardScaler()
     x1 = sc_X.fit_transform(x)
