@@ -7,6 +7,7 @@ def getdata(file):
     data = np.genfromtxt(file, delimiter=';', skip_header=1)
     x = data[:, :-1]
     y = data[:, data.shape[1]-1].astype(int)
+    #print data
     yd = np.identity(10)
     yd = np.vstack([[0 for i in range(10)], yd])
     y = yd[y, :]
@@ -23,7 +24,30 @@ def getdata(file):
     return [traindata, testdata]
 
 
+def testdata(file):
+    data = np.genfromtxt(file, delimiter=',')
+    data = data[:, -10:]
+    y = np.zeros((data.shape[0],))
+    yd = np.vstack([[0 for i in range(10)],np.identity(10)])
+    #print yd
+    j = 0
+    for row in data:
+        for index in range(yd.shape[0]):
+            if np.array_equal(row, yd[index]):
+                y[j] = index
+                j += 1
+                print str(row)+ " " + str(index)
+            #else: print 'no match' + str(row) 
 
-train,test = getdata('../winequality-red.csv')
-np.savetxt('winequality-red-train.csv', train, delimiter = ',')
-np.savetxt('winequality-red-test.csv', test, delimiter = ',')
+
+wine = ['winequality-white', 'winequality-red']
+for data in wine:
+    train,test = getdata('../'+data+'.csv')
+    np.savetxt(data+'-train.csv', train, delimiter = ',')
+    np.savetxt(data+'-test.csv', test, delimiter = ',')
+    
+    print "Testing Train data:\n"
+    testdata(data+'-train.csv')
+    
+    print "Testing Test data:\n"
+    testdata(data+'-test.csv')
