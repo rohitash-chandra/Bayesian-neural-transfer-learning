@@ -150,7 +150,7 @@ class Network:
             self.ForwardPass(Input)
             sse = sse + self.sampleEr(Desired)
 
-            if (np.isclose(self.out, Desired, atol=erTolerance).any()):
+            if (np.isclose(self.out, Desired, atol=erTolerance).all()):
                 clasPerf = clasPerf + 1
 
         return (sse / testSize, float(clasPerf) / testSize * 100)
@@ -225,21 +225,28 @@ def covert_time(secs):
 # --------------------------------------------------------------------------
 if __name__ == '__main__':
     input = 11
-    hidden = 12
-    output = 10
+    hidden = 7
+    output = 4
 
     traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
     topo = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
 
-    numSamples = 2000
-    lrate = 0.1
+    lrate = 0.5
 
     y_train = traindata[:, input:]
     y_test = testdata[:, input:]
 
     network = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
-    network.BP_GD(stocastic=True, vanilla=1, depth=1000)
+    network.BP_GD(stocastic=True, vanilla=1, depth=3000)
+
+    etol_tr = 0.5
+    etol = 0.2
+
+    print
+    print network.TestNetwork(phase=0, erTolerance=etol_tr)
+    print network.TestNetwork(phase=1, erTolerance=etol)
+
 
 
 
