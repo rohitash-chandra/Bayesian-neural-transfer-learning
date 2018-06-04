@@ -40,14 +40,15 @@ def testdata(file):
             #else: print 'no match' + str(row) 
 
 
-wine = ['winequality-white', 'winequality-red']
-for data in wine:
-    train,test = getdata('../'+data+'.csv')
-    np.savetxt(data+'-train.csv', train, delimiter = ',')
-    np.savetxt(data+'-test.csv', test, delimiter = ',')
+if __name__ == '__main__':
+    wine = ['winequality-white', 'winequality-red']
+    for data in wine:
+        train,test = getdata('../'+data+'.csv')
+        np.savetxt(data+'-train.csv', train, delimiter = ',')
+        np.savetxt(data+'-test.csv', test, delimiter = ',')
     
-    print "Testing Train data:\n"
-    testdata(data+'-train.csv')
-    
-    print "Testing Test data:\n"
-    testdata(data+'-test.csv')
+        print "Testing Train data:\n"
+        testdata(data+'-train.csv')
+
+        print "Testing Test data:\n"
+        testdata(data+'-test.csv')

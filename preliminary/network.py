@@ -8,8 +8,11 @@ from scipy.stats import multivariate_normal
 from scipy.stats import norm
 import math
 import os
-from expdata import setexperimentdata
 import sys
+
+sys.path.insert(0, '/home/arpit/Dropbox/Arpit_Kapoor/Experiments/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
+from preprocess import getdata
+
 
 # An example of a class
 class Network:
@@ -19,6 +22,7 @@ class Network:
         self.TestData = Test
         np.random.seed()
         self.lrate = learn_rate
+        self.NumSamples = self.TrainData.shape[0]
 
         self.W1 = np.random.randn(self.Top[0], self.Top[1]) / np.sqrt(self.Top[0])
         self.B1 = np.random.randn(1, self.Top[1]) / np.sqrt(self.Top[1])  # bias first layer
@@ -46,24 +50,25 @@ class Network:
         out_delta = (desired - self.out) * (self.out * (1 - self.out))
         hid_delta = out_delta.dot(self.W2.T) * (self.hidout * (1 - self.hidout))
 
-        #self.W2 += (self.hidout.T.dot(out_delta) * self.lrate)
-        #self.B2 += (-1 * self.lrate * out_delta)
-        #self.W1 += (Input.T.dot(hid_delta) * self.lrate)
-        #self.B1 += (-1 * self.lrate * hid_delta)
+        self.W2 += (self.hidout.T.dot(out_delta) * self.lrate)
+        self.B2 += (-1 * self.lrate * out_delta)
+        self.W1 += (Input.T.dot(hid_delta) * self.lrate)
+        self.B1 += (-1 * self.lrate * hid_delta)
 
-        layer = 1  # hidden to output
-        for x in xrange(0, self.Top[layer]):
-            for y in xrange(0, self.Top[layer + 1]):
-                self.W2[x, y] += self.lrate * out_delta[y] * self.hidout[x]
-        for y in xrange(0, self.Top[layer + 1]):
-            self.B2[y] += -1 * self.lrate * out_delta[y]
-
-        layer = 0  # Input to Hidden
-        for x in xrange(0, self.Top[layer]):
-            for y in xrange(0, self.Top[layer + 1]):
-                self.W1[x, y] += self.lrate * hid_delta[y] * Input[x]
-        for y in xrange(0, self.Top[layer + 1]):
-            self.B1[y] += -1 * self.lrate * hid_delta[y]
+        # layer = 1  # hidden to output
+        # for x in xrange(0, self.Top[layer]):
+        #     for y in xrange(0, self.Top[layer + 1]):
+        #         print (out_delta*self.hidout.transpose()).shape
+        #         self.W2[x, y] += self.lrate * out_delta[y] * self.hidout[x]
+        # for y in xrange(0, self.Top[layer + 1]):
+        #     self.B2[y] += -1 * self.lrate * out_delta[y]
+        #
+        # layer = 0  # Input to Hidden
+        # for x in xrange(0, self.Top[layer]):
+        #     for y in xrange(0, self.Top[layer + 1]):
+        #         self.W1[x, y] += self.lrate * hid_delta[y] * Input[x]
+        # for y in xrange(0, self.Top[layer + 1]):
+        #     self.B1[y] += -1 * self.lrate * hid_delta[y]
 
     def decode(self, w):
         w_layer1size = self.Top[0] * self.Top[1]
@@ -121,6 +126,82 @@ class Network:
 
         return fx
 
+    def TestNetwork(self, phase, erTolerance):
+        Input = np.zeros((1, self.Top[0]))  # temp hold input
+        Desired = np.zeros((1, self.Top[2]))
+        nOutput = np.zeros((1, self.Top[2]))
+        if phase == 1:
+            Data = self.TestData
+        if phase == 0:
+            Data = self.TrainData
+        clasPerf = 0
+        sse = 0
+        testSize = Data.shape[0]
+        self.W1 = self.BestW1
+        self.W2 = self.BestW2  # load best knowledge
+        self.B1 = self.BestB1
+        self.B2 = self.BestB2  # load best knowledge
+
+        for s in xrange(0, testSize):
+
+            Input[:] = Data[s, 0:self.Top[0]]
+            Desired[:] = Data[s, self.Top[0]:]
+
+            self.ForwardPass(Input)
+            sse = sse + self.sampleEr(Desired)
+
+            if (np.isclose(self.out, Desired, atol=erTolerance).any()):
+                clasPerf = clasPerf + 1
+
+        return (sse / testSize, float(clasPerf) / testSize * 100)
+
+    def saveKnowledge(self):
+        self.BestW1 = self.W1
+        self.BestW2 = self.W2
+        self.BestB1 = self.B1
+        self.BestB2 = self.B2
+
+    def BP_GD(self, stocastic, vanilla, depth):  # BP with SGD (Stocastic BP)
+        # self.momenRate = mRate
+        # self.NumSamples = numSamples
+
+        Input = np.zeros((1, self.Top[0]))  # temp hold input
+        Desired = np.zeros((1, self.Top[2]))
+        # Er = []#np.zeros((1, self.Max))
+        epoch = 0
+        bestmse = 100
+        bestTrain = 0
+        # while  epoch < self.Max and bestTrain < self.minPerf :
+        while epoch < depth:
+            sse = 0
+            for s in xrange(0, self.NumSamples):
+
+                if (stocastic):
+                    pat = random.randint(0, self.NumSamples - 1)
+                else:
+                    pat = s
+
+                Input[:] = self.TrainData[pat, :self.Top[0]]
+                Desired[:] = self.TrainData[pat, self.Top[0]:]
+
+                self.ForwardPass(Input)
+                self.BackwardPass(Input, Desired)
+                sse = sse + self.sampleEr(Desired)
+
+            mse = np.sqrt(sse / self.NumSamples * self.Top[2])
+
+            if mse < bestmse:
+                bestmse = mse
+                self.saveKnowledge()
+                (x, bestTrain) = self.TestNetwork(0, 0.2)
+
+            # Er = np.append(Er, mse)
+            sys.stdout.write('\rEpoch: '+str(epoch)+"/"+ str(depth))
+
+            epoch = epoch + 1
+
+        return (mse, bestmse, bestTrain, epoch)
+
 
 
 # --------------------------------------------------------------------------
@@ -140,4 +221,25 @@ def covert_time(secs):
         secs = '0'+secs
 
     return [mins, secs]
+
+# --------------------------------------------------------------------------
+if __name__ == '__main__':
+    input = 11
+    hidden = 12
+    output = 10
+
+    traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
+    topo = [input, hidden, output]
+    # print(traindata.shape, testdata.shape)
+
+    numSamples = 2000
+    lrate = 0.1
+
+    y_train = traindata[:, input:]
+    y_test = testdata[:, input:]
+
+    network = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
+    network.BP_GD(stocastic=True, vanilla=1, depth=1000)
+
+
 
