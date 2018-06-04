@@ -225,7 +225,7 @@ def covert_time(secs):
 # --------------------------------------------------------------------------
 if __name__ == '__main__':
     input = 11
-    hidden = 7
+    hidden = 25
     output = 4
 
     traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
@@ -238,7 +238,7 @@ if __name__ == '__main__':
     y_test = testdata[:, input:]
 
     network = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
-    network.BP_GD(stocastic=True, vanilla=1, depth=3000)
+    network.BP_GD(stocastic=True, vanilla=1, depth=2000)
 
     etol_tr = 0.5
     etol = 0.2
