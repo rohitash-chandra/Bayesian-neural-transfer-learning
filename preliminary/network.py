@@ -38,7 +38,7 @@ class Network:
         self.Top = Topo  # NN topology [input, hidden, output]
         self.TrainData = Train
         self.TestData = Test
-        np.random.seed()
+        np.random.seed(int(time.time()))
         self.lrate = learn_rate
         self.NumSamples = self.TrainData.shape[0]
 
@@ -184,14 +184,18 @@ class Network:
         self.BestB2 = self.B2
 
     def plot_err(self, mse_lis, mad_lis, depth):
-        plt.plot(range(depth), mse_lis, label='mse')
-        plt.plot(range(depth), mad_lis, label='mad')
+
+        ax = plt.subplot(111)
+        plt.plot(range(depth), mse_lis, label="mse")
+        plt.plot(range(depth), mad_lis, label="mad")
+
+        leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
+        leg.get_frame().set_alpha(0.5)
+
         plt.xlabel('Epoch')
         plt.ylabel('Mean Error')
         plt.title(' Mean Error')
         plt.savefig('error.png')
-
-
 
     def BP_GD(self, stocastic, vanilla, depth):  # BP with SGD (Stocastic BP)
         # self.momenRate = mRate
@@ -243,9 +247,18 @@ class Network:
 
             epoch = epoch + 1
 
-        self.plot_err(mad_lis, mse_lis, depth)
+        self.plot_err(mse_lis, mad_lis, depth)
 
         return (mse, mad, bestmse, bestTrain, epoch)
+
+    def transfer_weights(self, source):
+        self.W1 = source.W1
+        self.W2 = source.W2
+        self.B1 = source.B1
+        self.B2 = source.B2
+
+# --------------------------------------------------------------------------
+
 
 
 
@@ -259,32 +272,66 @@ def pickle_knowledge(obj, pickle_file):
 
 # --------------------------------------------------------------------------
 if __name__ == '__main__':
-    input = 11
-    hidden = 94
-    output = 4
 
-    traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
+
+    input = 11
+    hidden = 84
+    output = 4
     topo = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
-
     lrate = 0.9
-
-    y_train = traindata[:, input:]
-    y_test = testdata[:, input:]
-
-    network = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
-    network.BP_GD(stocastic=True, vanilla=1, depth=2000)
-
     etol_tr = 0.2
     etol = 0.5
 
+
+    traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
+    # y_train = traindata[:, input:]
+    # y_test = testdata[:, input:]
+
+    # Source Dataset Network
+    network_white = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
+    print("\nWine Quality White (Source):")
+    network_white.BP_GD(stocastic=False, vanilla=1, depth=2500)
+
     print "\nTrain Data performance: "
-    sse, acc = network.TestNetwork(phase=0, erTolerance=etol_tr)
+    sse, acc = network_white.TestNetwork(phase=0, erTolerance=etol_tr)
     print("sse: "+ str(sse) + " acc: "+ str(acc))
-    print "\nTest Data performance: "
-    sse, acc = network.TestNetwork(phase=1, erTolerance=etol)
+    print "Test Data performance: "
+    sse, acc = network_white.TestNetwork(phase=1, erTolerance=etol)
     print("sse: " + str(sse) + " acc: " + str(acc))
 
-    pickle_knowledge(network, 'winequality-white-knowledge.pickle')
+    pickle_knowledge(network_white, 'winequality-white-knowledge.pickle')
 
+
+    # # Target network without transfer
+    # traindata, testdata = getdata('WineQualityDataset/winequality-red.csv')
+    #
+    # network_red = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
+    # print("\nWine Quality Red Without Transfer:")
+    # network_red.BP_GD(stocastic=True, vanilla=1, depth=1000)
+    #
+    # print "\nTrain Data performance: "
+    # sse, acc = network_red.TestNetwork(phase=0, erTolerance=etol_tr)
+    # print("sse: "+ str(sse) + " acc: "+ str(acc))
+    # print "Test Data performance: "
+    # sse, acc = network_red.TestNetwork(phase=1, erTolerance=etol)
+    # print("sse: " + str(sse) + " acc: " + str(acc))
+    #
+    #
+    #
+    # # pickler = open('winequality-white-knowledge.pickle', 'rb')
+    # # network_white = pickle.load(pickler)
+    #
+    # # Transfer knowledge from source network to the target network
+    # network_red_trf = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
+    # network_red_trf.transfer_weights(network_white)
+    # print("\nWine Quality Red With Transfer:")
+    # network_red_trf.BP_GD(stocastic=True, vanilla=1, depth=1000)
+    #
+    # print "\nTrain Data performance: "
+    # sse, acc = network_red_trf.TestNetwork(phase=0, erTolerance=etol_tr)
+    # print("sse: "+ str(sse) + " acc: "+ str(acc))
+    # print "\nTest Data performance: "
+    # sse, acc = network_red_trf.TestNetwork(phase=1, erTolerance=etol)
+    # print("sse: " + str(sse) + " acc: " + str(acc))
 
