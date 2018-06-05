@@ -13,6 +13,23 @@ import sys
 sys.path.insert(0, '/home/arpit/Dropbox/Arpit_Kapoor/Experiments/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
 from preprocess import getdata
 
+def convert_time(secs):
+    if secs >= 60:
+        mins = str(int(secs/60))
+        secs = str(int(secs%60))
+    else:
+        secs = str(int(secs))
+        mins = str(00)
+
+    if len(mins) == 1:
+        mins = '0'+mins
+
+    if len(secs) == 1:
+        secs = '0'+secs
+
+    return [mins, secs]
+
+# --------------------------------------------------------------------------
 
 # An example of a class
 class Network:
@@ -40,6 +57,11 @@ class Network:
         sqerror = np.sum(np.square(error)) / self.Top[2]
         return sqerror
 
+    def sampleAD(self, actualout):
+        error = np.subtract(self.out, actualout)
+        moderror = np.sum(np.abs(error)) / self.Top[2]
+        return moderror
+
     def ForwardPass(self, X):
         z1 = X.dot(self.W1) - self.B1
         self.hidout = self.sigmoid(z1)  # output of first hidden layer
@@ -58,7 +80,6 @@ class Network:
         # layer = 1  # hidden to output
         # for x in xrange(0, self.Top[layer]):
         #     for y in xrange(0, self.Top[layer + 1]):
-        #         print (out_delta*self.hidout.transpose()).shape
         #         self.W2[x, y] += self.lrate * out_delta[y] * self.hidout[x]
         # for y in xrange(0, self.Top[layer + 1]):
         #     self.B2[y] += -1 * self.lrate * out_delta[y]
@@ -161,6 +182,12 @@ class Network:
         self.BestB1 = self.B1
         self.BestB2 = self.B2
 
+    def plot_err(self, mse_lis, mad_lis, depth):
+        plt.plot(range(depth), mse_lis, label = 'mse')
+        plt.plot(range(depth), mad_lis, label = 'mad')
+        plt.show()
+        plt.savefig('error.png')
+
     def BP_GD(self, stocastic, vanilla, depth):  # BP with SGD (Stocastic BP)
         # self.momenRate = mRate
         # self.NumSamples = numSamples
@@ -171,9 +198,15 @@ class Network:
         epoch = 0
         bestmse = 100
         bestTrain = 0
+
+        mad_lis = []
+        mse_lis = []
+
+        start = time.time()
         # while  epoch < self.Max and bestTrain < self.minPerf :
         while epoch < depth:
             sse = 0
+            sad = 0
             for s in xrange(0, self.NumSamples):
 
                 if (stocastic):
@@ -187,65 +220,59 @@ class Network:
                 self.ForwardPass(Input)
                 self.BackwardPass(Input, Desired)
                 sse = sse + self.sampleEr(Desired)
+                sad = sad + self.sampleAD(Desired)
 
             mse = np.sqrt(sse / self.NumSamples * self.Top[2])
+            mse_lis.append(mse)
+            mad = sad / self.NumSamples * self.Top[2]
+            mad_lis.append(mad)
 
             if mse < bestmse:
                 bestmse = mse
                 self.saveKnowledge()
                 (x, bestTrain) = self.TestNetwork(0, 0.2)
 
+            elapsed = convert_time(time.time() - start)
             # Er = np.append(Er, mse)
-            sys.stdout.write('\rEpoch: '+str(epoch)+"/"+ str(depth))
+            sys.stdout.write('\rEpoch: '+str(epoch+1)+"/"+ str(depth)+" mse: "+ str(mse) + " mad: " + str(mad) + " Time elapsed: "+str(elapsed[0])+":"+str(elapsed[1]))
 
             epoch = epoch + 1
 
-        return (mse, bestmse, bestTrain, epoch)
+        self.plot_err(mad_lis, mse_lis, depth)
+
+        return (mse, mad, bestmse, bestTrain, epoch)
 
 
 
 # --------------------------------------------------------------------------
 
-def covert_time(secs):
-    if secs >= 60:
-        mins = str(secs/60)
-        secs = str(secs%60)
-    else:
-        secs = str(secs)
-        mins = str(00)
 
-    if len(mins) == 1:
-        mins = '0'+mins
-
-    if len(secs) == 1:
-        secs = '0'+secs
-
-    return [mins, secs]
-
-# --------------------------------------------------------------------------
 if __name__ == '__main__':
     input = 11
-    hidden = 25
+    hidden = 90
     output = 4
 
     traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
     topo = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
 
-    lrate = 0.5
+    lrate = 0.6
 
     y_train = traindata[:, input:]
     y_test = testdata[:, input:]
 
     network = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
-    network.BP_GD(stocastic=True, vanilla=1, depth=2000)
+    network.BP_GD(stocastic=True, vanilla=1, depth=1000)
 
-    etol_tr = 0.5
-    etol = 0.2
+    etol_tr = 0.2
+    etol = 0.5
 
-    print
-    print network.TestNetwork(phase=0, erTolerance=etol_tr)
-    print network.TestNetwork(phase=1, erTolerance=etol)
+    print "\nTrain Data performance: "
+    sse, acc = network.TestNetwork(phase=0, erTolerance=etol_tr)
+    print("sse: "+ str(sse) + " acc: "+ str(acc))
+    print "\nTest Data performance: "
+    sse, acc = network.TestNetwork(phase=1, erTolerance=etol)
+    print("sse: " + str(sse) + " acc: " + str(acc))
 
 
 

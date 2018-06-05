@@ -441,61 +441,9 @@ def main():
 
     print("Train acc: " + str(train_acc_mu))
     print("Test acc: " + str(test_acc_mu))
+    with open("File.txt", 'w') as file:
+        file.write(str(train_acc_mu)+ " " + str(test_acc_mu))
 
-    testResults = np.c_[ytestdata, fx_mu, fx_high, fx_low]
 
-    trainResults = np.c_[ytraindata, fx_mu_tr, fx_high_tr, fx_low_tr]
-
-    # Write RMSE to
-    with open("Results/" +
-              filenames[problem] + "_rmse" + ".txt", 'w') as fil:
-        rmse = [rmse_tr, rmsetr_std, rmse_tes, rmsetest_std]
-        rmse = "\t".join(list(map(str, rmse))) + "\n"
-        fil.write(rmse)
-
-    n_groups = len(filenames)
-    fig, ax = plt.subplots()  
-    index = np.arange(n_groups)
-    bar_width = 0.2
-    opacity = 0.8
-    capsize = 3
-    
-    filetrain = open('Results/train.txt', 'w+')
-    filetest = open('Results/test.txt', 'w+')
-    filestdtr = open('Results/std_tr.txt','w+')
-    filestdts = open('Results/std_ts.txt', 'w+')
-
-    np.savetxt(filetrain, train_accs, fmt='%2.2f')
-    np.savetxt(filestdtr, train_stds, fmt='%2.2f')
-    np.savetxt(filetest, test_accs, fmt='%2.2f')
-    np.savetxt(filestdts, test_stds, fmt='%2.2f')
-
-    filetrain.close()
-    filetest.close()
-    filestdtr.close()
-    filestdts.close()
-   
-    print(train_accs) 
-    plt.bar(index + float(bar_width)/2, train_accs, bar_width,
-                    alpha = opacity,
-                    error_kw = dict(elinewidth=1, ecolor='r'),
-                    yerr = train_stds,
-                    color = 'c',
-                    label = 'train')
-
-    plt.bar(index + float(bar_width)/2 + bar_width, test_accs, bar_width,
-                    alpha = opacity,
-                    error_kw = dict(elinewidth=1, ecolor='g'),
-                    yerr = test_stds,
-                    color = 'b',
-                    label = 'test')
-    plt.xlabel('Datasets')
-    plt.ylabel('Accuracy')
-    plt.xticks(index+bar_width, filenames, rotation=70)
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig('barplt.png')
-    plt.show()
 
 if __name__ == "__main__": main()
