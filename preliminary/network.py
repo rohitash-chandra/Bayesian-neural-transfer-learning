@@ -9,6 +9,7 @@ from scipy.stats import norm
 import math
 import os
 import sys
+import pickle
 
 sys.path.insert(0, '/home/arpit/Dropbox/Arpit_Kapoor/Experiments/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
 from preprocess import getdata
@@ -150,7 +151,7 @@ class Network:
     def TestNetwork(self, phase, erTolerance):
         Input = np.zeros((1, self.Top[0]))  # temp hold input
         Desired = np.zeros((1, self.Top[2]))
-        nOutput = np.zeros((1, self.Top[2]))
+        Output = np.zeros((1, self.Top[2]))
         if phase == 1:
             Data = self.TestData
         if phase == 0:
@@ -183,10 +184,14 @@ class Network:
         self.BestB2 = self.B2
 
     def plot_err(self, mse_lis, mad_lis, depth):
-        plt.plot(range(depth), mse_lis, label = 'mse')
-        plt.plot(range(depth), mad_lis, label = 'mad')
-        plt.show()
+        plt.plot(range(depth), mse_lis, label='mse')
+        plt.plot(range(depth), mad_lis, label='mad')
+        plt.xlabel('Epoch')
+        plt.ylabel('Mean Error')
+        plt.title(' Mean Error')
         plt.savefig('error.png')
+
+
 
     def BP_GD(self, stocastic, vanilla, depth):  # BP with SGD (Stocastic BP)
         # self.momenRate = mRate
@@ -247,22 +252,28 @@ class Network:
 # --------------------------------------------------------------------------
 
 
+def pickle_knowledge(obj, pickle_file):
+    pickling_on = open(pickle_file, 'wb')
+    pickle.dump(obj, pickling_on)
+    pickling_on.close()
+
+# --------------------------------------------------------------------------
 if __name__ == '__main__':
     input = 11
-    hidden = 90
+    hidden = 94
     output = 4
 
     traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
     topo = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
 
-    lrate = 0.6
+    lrate = 0.9
 
     y_train = traindata[:, input:]
     y_test = testdata[:, input:]
 
     network = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate)
-    network.BP_GD(stocastic=True, vanilla=1, depth=1000)
+    network.BP_GD(stocastic=True, vanilla=1, depth=2000)
 
     etol_tr = 0.2
     etol = 0.5
@@ -274,6 +285,6 @@ if __name__ == '__main__':
     sse, acc = network.TestNetwork(phase=1, erTolerance=etol)
     print("sse: " + str(sse) + " acc: " + str(acc))
 
-
+    pickle_knowledge(network, 'winequality-white-knowledge.pickle')
 
 
