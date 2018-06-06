@@ -303,9 +303,160 @@ class Network:
         self.B3 = source.B3
 
 # --------------------------------------------------------------------------
+class MCMC:
+    def __init__(self, samples, traindata, testdata, topology):
+        self.samples = samples  # NN topology [input, hidden, output]
+        self.topology = topology  # max epocs
+        self.traindata = traindata  #
+        self.testdata = testdata
+        # ----------------
+
+    def rmse(self, predictions, targets):
+        return np.sqrt(((predictions - targets) ** 2).mean())
+
+    def likelihood_func(self, neuralnet, data, w, tausq):
+        y = data[:, self.topology[0]]
+        fx = neuralnet.evaluate_proposal(data, w)
+        rmse = self.rmse(fx, y)
+        loss = -0.5 * np.log(2 * math.pi * tausq) - 0.5 * np.square(y - fx) / tausq
+        return [np.sum(loss), fx, rmse]
+
+    def prior_likelihood(self, sigma_squared, nu_1, nu_2, w, tausq):
+        h = self.topology[1]  # number hidden neurons
+        d = self.topology[0]  # number input neurons
+        part1 = -1 * ((d * h + h + 2) / 2) * np.log(sigma_squared)
+        part2 = 1 / (2 * sigma_squared) * (sum(np.square(w)))
+        log_loss = part1 - part2 - (1 + nu_1) * np.log(tausq) - (nu_2 / tausq)
+        return log_loss
+
+    def sampler(self):
+
+        # ------------------- initialize MCMC
+        testsize = self.testdata.shape[0]
+        trainsize = self.traindata.shape[0]
+        samples = self.samples
+
+        x_test = np.linspace(0, 1, num=testsize)
+        x_train = np.linspace(0, 1, num=trainsize)
+
+        netw = self.topology  # [input, hidden, output]
+        y_test = self.testdata[:, netw[0]]
+        y_train = self.traindata[:, netw[0]]
+        print y_train.size
+        print y_test.size
+
+        w_size = (netw[0] * netw[1]) + (netw[1] * netw[2]) + netw[1] + netw[2]  # num of weights and bias
+
+        pos_w = np.ones((samples, w_size))  # posterior of all weights and bias over all samples
+        pos_tau = np.ones((samples, 1))
+
+        fxtrain_samples = np.ones((samples, trainsize))  # fx of train data over all samples
+        fxtest_samples = np.ones((samples, testsize))  # fx of test data over all samples
+        rmse_train = np.zeros(samples)
+        rmse_test = np.zeros(samples)
+
+        w = np.random.randn(w_size)
+        w_proposal = np.random.randn(w_size)
+
+        step_w = 0.02;  # defines how much variation you need in changes to w
+        step_eta = 0.01;
+        # --------------------- Declare FNN and initialize
+
+        neuralnet = Network(self.topology, self.traindata, self.testdata)
+        print 'evaluate Initial w'
+
+        pred_train = neuralnet.evaluate_proposal(self.traindata, w)
+        pred_test = neuralnet.evaluate_proposal(self.testdata, w)
+
+        eta = np.log(np.var(pred_train - y_train))
+        tau_pro = np.exp(eta)
+
+        sigma_squared = 25
+        nu_1 = 0
+        nu_2 = 0
+
+        prior_likelihood = self.prior_likelihood(sigma_squared, nu_1, nu_2, w, tau_pro)  # takes care of the gradients
+
+        [likelihood, pred_train, rmsetrain] = self.likelihood_func(neuralnet, self.traindata, w, tau_pro)
+        [likelihood_ignore, pred_test, rmsetest] = self.likelihood_func(neuralnet, self.testdata, w, tau_pro)
+
+        print likelihood
+
+        naccept = 0
+        print 'begin sampling using mcmc random walk'
+        plt.plot(x_train, y_train)
+        plt.plot(x_train, pred_train)
+        plt.title("Plot of Data vs Initial Fx")
+        plt.savefig('mcmcresults/begin.png')
+        plt.clf()
+
+        plt.plot(x_train, y_train)
+
+        for i in range(samples - 1):
+
+            w_proposal = w + np.random.normal(0, step_w, w_size)
+
+            eta_pro = eta + np.random.normal(0, step_eta, 1)
+            tau_pro = math.exp(eta_pro)
+
+            [likelihood_proposal, pred_train, rmsetrain] = self.likelihood_func(neuralnet, self.traindata, w_proposal,
+                                                                                tau_pro)
+            [likelihood_ignore, pred_test, rmsetest] = self.likelihood_func(neuralnet, self.testdata, w_proposal,
+                                                                            tau_pro)
+
+            # likelihood_ignore  refers to parameter that will not be used in the alg.
+
+            prior_prop = self.prior_likelihood(sigma_squared, nu_1, nu_2, w_proposal,
+                                               tau_pro)  # takes care of the gradients
+
+            diff_likelihood = likelihood_proposal - likelihood
+            diff_priorliklihood = prior_prop - prior_likelihood
+
+            mh_prob = min(1, math.exp(diff_likelihood + diff_priorliklihood))
+
+            u = random.uniform(0, 1)
+
+            if u < mh_prob:
+                # Update position
+                print    i, ' is accepted sample'
+                naccept += 1
+                likelihood = likelihood_proposal
+                prior_likelihood = prior_prop
+                w = w_proposal
+                eta = eta_pro
+
+                print  likelihood, prior_likelihood, rmsetrain, rmsetest, w, 'accepted'
+
+                pos_w[i + 1,] = w_proposal
+                pos_tau[i + 1,] = tau_pro
+                fxtrain_samples[i + 1,] = pred_train
+                fxtest_samples[i + 1,] = pred_test
+                rmse_train[i + 1,] = rmsetrain
+                rmse_test[i + 1,] = rmsetest
+
+                plt.plot(x_train, pred_train)
 
 
+            else:
+                pos_w[i + 1,] = pos_w[i,]
+                pos_tau[i + 1,] = pos_tau[i,]
+                fxtrain_samples[i + 1,] = fxtrain_samples[i,]
+                fxtest_samples[i + 1,] = fxtest_samples[i,]
+                rmse_train[i + 1,] = rmse_train[i,]
+                rmse_test[i + 1,] = rmse_test[i,]
 
+                # print i, 'rejected and retained'
+
+        print naccept, ' num accepted'
+        print naccept / (samples * 1.0), '% was accepted'
+        accept_ratio = naccept / (samples * 1.0) * 100
+
+        plt.title("Plot of Accepted Proposals")
+        plt.savefig('mcmcresults/proposals.png')
+        plt.savefig('mcmcresults/proposals.svg', format='svg', dpi=600)
+        plt.clf()
+
+        return (pos_w, pos_tau, fxtrain_samples, fxtest_samples, x_train, x_test, rmse_train, rmse_test, accept_ratio)
 
 # --------------------------------------------------------------------------
 
@@ -332,83 +483,4 @@ if __name__ == '__main__':
 
     minepoch = 0
     maxepoch = 500
-
-
-    # traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
-    # # y_train = traindata[:, input:]
-    # # y_test = testdata[:, input:]
-    #
-    # # Source Dataset Network
-    # network_white = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate, alpha=alpha)
-    # print("\nWine Quality White (Source):")
-    # network_white.BP_GD(stocastic=False, vanilla=1, depth=1000)
-    #
-    # print "\nTrain Data performance: "
-    # sse, acc = network_white.TestNetwork(phase=0, erTolerance=etol_tr)
-    # print("sse: "+ str(sse) + " acc: "+ str(acc))
-    # print "Test Data performance: "
-    # sse, acc = network_white.TestNetwork(phase=1, erTolerance=etol)
-    # print("sse: " + str(sse) + " acc: " + str(acc))
-    #
-    # pickle_knowledge(network_white, 'winequality-white-knowledge.pickle')
-    #
-    pickler = open('winequality-white-knowledge.pickle', 'rb')
-    network_white = pickle.load(pickler)
-
-
-    # Target network without transfer
-    traindata, testdata = getdata('WineQualityDataset/winequality-red.csv')
-    network_red = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate=lrate, alpha=alpha)
-    print("\nWine Quality Red Without Transfer:")
-    train_acc_wo, test_acc_wo = network_red.BP_GD(stocastic=True, vanilla=1, depth=maxepoch)
-    print "\nTrain Data performance: "
-    sse, acc = network_red.TestNetwork(phase=0, erTolerance=etol_tr)
-    print("sse: "+ str(sse) + " acc: "+ str(acc))
-    print "Test Data performance: "
-    sse, acc = network_red.TestNetwork(phase=1, erTolerance=etol)
-    print("sse: " + str(sse) + " acc: " + str(acc))
-    pickle_knowledge(network_red, 'winequality-red-knowledge.pickle')
-
-
-
-    # Transfer knowledge from source network to the target network
-    network_red_trf = Network(Topo=topo, Train=traindata, Test=testdata, learn_rate =lrate, alpha=alpha)
-    network_red_trf.transfer_weights(network_white)
-    print("\nWine Quality Red With Transfer:")
-    train_acc_w, test_acc_w = network_red_trf.BP_GD(stocastic=True, vanilla=1, depth=maxepoch)
-
-    print "\nTrain Data performance: "
-    sse, acc = network_red_trf.TestNetwork(phase=0, erTolerance=etol_tr)
-    print("sse: "+ str(sse) + " acc: "+ str(acc))
-    print "\nTest Data performance: "
-    sse, acc = network_red_trf.TestNetwork(phase=1, erTolerance=etol)
-    print("sse: " + str(sse) + " acc: " + str(acc))
-
-    pickle_knowledge(network_red_trf, 'winequality-red-knowledge-trf.pickle')
-
-
-
-    ax = plt.subplot(111)
-    plt.plot(range(0, 500, 10), train_acc_w, label="train_w_trf")
-    plt.plot(range(0, 500, 10), train_acc_wo, label="train_wo_trf")
-
-
-    leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
-    leg.get_frame().set_alpha(0.5)
-
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.title('Wine Quality-Red Accuracy plot')
-    plt.savefig('accuracy-red-train.png')
-
-    plt.clf()
-
-    plt.plot(range(0, 500, 10), test_acc_w, label="test_w_trf")
-    plt.plot(range(0, 500, 10), test_acc_wo, label="test_wo_trf")
-    leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
-    leg.get_frame().set_alpha(0.5)
-
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.title('Wine Quality-Red Accuracy plot')
-    plt.savefig('accuracy-red-test.png')
+    traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
