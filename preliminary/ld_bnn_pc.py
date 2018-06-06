@@ -11,7 +11,7 @@ import os
 import sys
 
 
-sys.path.insert(0, '/home/arpit/Dropbox/Arpit_Kapoor/Experiments/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
+sys.path.insert(0, '/home/arpit/Projects/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
 from preprocess import getdata
 
 
@@ -349,7 +349,7 @@ class MCMC:
 def main():
     x = 3
     input = 11
-    hidden = 20
+    hidden = 94
     output = 4
 
     if x == 3:
@@ -370,7 +370,7 @@ def main():
 
     random.seed(time.time())
 
-    numSamples = 4000   # need to decide yourself
+    numSamples = 8000   # need to decide yourself
 
     mcmc = MCMC(numSamples, traindata, testdata, topology)  # declare class
 
