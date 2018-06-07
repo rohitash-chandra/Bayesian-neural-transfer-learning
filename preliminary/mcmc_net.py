@@ -34,7 +34,7 @@ def convert_time(secs):
 
 # An example of a class
 class Network:
-    def __init__(self, Topo, Train, Test, learn_rate, alpha):
+    def __init__(self, Topo, Train, Test, learn_rate = 0.5, alpha = 0.1):
         self.Top = Topo  # NN topology [input, hidden, output]
         self.TrainData = Train
         self.TestData = Test
@@ -47,47 +47,47 @@ class Network:
         self.B1 = np.random.randn(1, self.Top[1]) / np.sqrt(self.Top[1])  # bias first layer
         self.W2 = np.random.randn(self.Top[1], self.Top[2]) / np.sqrt(self.Top[1])
         self.B2 = np.random.randn(1, self.Top[2]) / np.sqrt(self.Top[1])  # bias second layer
-        self.W3 = np.random.randn(self.Top[2], self.Top[3]) / np.sqrt(self.Top[2])
-        self.B3 = np.random.randn(1, self.Top[3]) / np.sqrt(self.Top[2])  # bias second layer
+        # self.W3 = np.random.randn(self.Top[2], self.Top[3]) / np.sqrt(self.Top[2])
+        # self.B3 = np.random.randn(1, self.Top[3]) / np.sqrt(self.Top[2])  # bias second layer
 
 
 
-        self.hidout1 = np.zeros((1, self.Top[1]))  # output of first hidden layer
-        self.hidout2 = np.zeros((1,self.Top[2]))
-        self.out = np.zeros((1, self.Top[3]))  # output last layer
+        self.hidout = np.zeros((1, self.Top[1]))  # output of first hidden layer
+        # self.hidout2 = np.zeros((1,self.Top[2]))
+        self.out = np.zeros((1, self.Top[2]))  # output last layer
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
     def sampleEr(self, actualout):
         error = np.subtract(self.out, actualout)
-        sqerror = np.sum(np.square(error)) / self.Top[3]
+        sqerror = np.sum(np.square(error)) / self.Top[2]
         return sqerror
 
     def sampleAD(self, actualout):
         error = np.subtract(self.out, actualout)
-        moderror = np.sum(np.abs(error)) / self.Top[3]
+        moderror = np.sum(np.abs(error)) / self.Top[2]
         return moderror
 
     def ForwardPass(self, X):
         z1 = X.dot(self.W1) - self.B1
-        self.hidout1 = self.sigmoid(z1)  # output of first hidden layer
-        z2 = self.hidout1.dot(self.W2) - self.B2
-        self.hidout2 = self.sigmoid(z2)  # output second hidden layer
-        z3 = self.hidout2.dot(self.W3) - self.B3
-        self.out = self.sigmoid(z3)
+        self.hidout = self.sigmoid(z1)  # output of first hidden layer
+        z2 = self.hidout.dot(self.W2) - self.B2
+        self.out = self.sigmoid(z2)  # output second hidden layer
+        # z3 = self.hidout2.dot(self.W3) - self.B3
+        # self.out = self.sigmoid(z3)
 
     def BackwardPass(self, Input, desired):
         out_delta = (desired - self.out) * (self.out * (1 - self.out))
-        hid_delta2 = out_delta.dot(self.W3.T) * (self.hidout2 * (1 - self.hidout2))
-        hid_delta1 = hid_delta2.dot(self.W2.T) * (self.hidout1 * (1 - self.hidout1))
+        # hid_delta2 = out_delta.dot(self.W3.T) * (self.hidout2 * (1 - self.hidout2))
+        hid_delta = out_delta.dot(self.W2.T) * (self.hidout * (1 - self.hidout))
 
-        self.W3 += (self.hidout2.T.dot(out_delta) * self.lrate)
-        self.B3 += (-1 * self.lrate * out_delta)
-        self.W2 += (self.hidout1.T.dot(hid_delta2) * self.lrate)
-        self.B2 += (-1 * self.lrate * hid_delta2)
-        self.W1 += (Input.T.dot(hid_delta1) * self.lrate)
-        self.B1 += (-1 * self.lrate * hid_delta1)
+        # self.W3 += (self.hidout2.T.dot(out_delta) * self.lrate)
+        # self.B3 += (-1 * self.lrate * out_delta)
+        self.W2 += (self.hidout.T.dot(out_delta) * self.lrate)
+        self.B2 += (-1 * self.lrate * out_delta)
+        self.W1 += (Input.T.dot(hid_delta) * self.lrate)
+        self.B1 += (-1 * self.lrate * hid_delta)
 
         # layer = 1  # hidden to output
         # for x in xrange(0, self.Top[layer]):
@@ -106,7 +106,7 @@ class Network:
     def decode(self, w):
         w_layer1size = self.Top[0] * self.Top[1]
         w_layer2size = self.Top[1] * self.Top[2]
-        w_layer3size = self.Top[2] * self.Top[3]
+        # w_layer3size = self.Top[2] * self.Top[3]
 
         w_layer1 = w[0:w_layer1size]
         self.W1 = np.reshape(w_layer1, (self.Top[0], self.Top[1]))
@@ -114,19 +114,19 @@ class Network:
         w_layer2 = w[w_layer1size:w_layer1size + w_layer2size]
         self.W2 = np.reshape(w_layer2, (self.Top[1], self.Top[2]))
 
-        w_layer3 = w[w_layer2size:w_layer3size + w_layer2size]
-        self.W3 = np.reshape(w_layer3, (self.Top[2], self.Top[3]))
+        # w_layer3 = w[w_layer2size:w_layer3size + w_layer2size]
+        # self.W3 = np.reshape(w_layer3, (self.Top[2], self.Top[3]))
 
-        self.B1 = w[w_layer1size + w_layer2size + w_layer3size :w_layer1size + w_layer2size + w_layer3size + self.Top[1]]
-        self.B2 = w[w_layer1size + w_layer2size + w_layer3size + self.Top[1] :w_layer1size + w_layer2size + w_layer3size + self.Top[1] + self.Top[2]]
-        self.B3 = w[w_layer1size + w_layer2size + w_layer3size + self.Top[1] + self.Top[2]:w_layer1size + w_layer2size + w_layer3size + self.Top[1] + self.Top[2] + self.Top[3]]
+        self.B1 = w[w_layer1size + w_layer2size :w_layer1size + w_layer2size + self.Top[1]]
+        self.B2 = w[w_layer1size + w_layer2size + self.Top[1] :w_layer1size + w_layer2size + self.Top[1] + self.Top[2]]
+        # self.B3 = w[w_layer1size + w_layer2size + w_layer3size + self.Top[1] + self.Top[2]:w_layer1size + w_layer2size + w_layer3size + self.Top[1] + self.Top[2] + self.Top[3]]
 
 
     def encode(self):
         w1 = self.W1.ravel()
         w2 = self.W2.ravel()
-        w3 = self.W3.ravel()
-        w = np.concatenate([w1, w2, w3, self.B1, self.B2, self.B3])
+        # w3 = self.W3.ravel()
+        w = np.concatenate([w1, w2, self.B1, self.B2])
         return w
 
     def langevin_gradient(self, data, w, depth):  # BP with SGD (Stocastic BP)
@@ -156,8 +156,8 @@ class Network:
         size = data.shape[0]
 
         Input = np.zeros((1, self.Top[0]))  # temp hold input
-        Desired = np.zeros((1, self.Top[3]))
-        fx = np.zeros((size,self.Top[3]))
+        Desired = np.zeros((1, self.Top[2]))
+        fx = np.zeros((size,self.Top[2]))
 
         for i in xrange(0, size):  # to see what fx is produced by your current weight update
             Input = data[i, 0:self.Top[0]]
@@ -168,8 +168,8 @@ class Network:
 
     def TestNetwork(self, phase, erTolerance):
         Input = np.zeros((1, self.Top[0]))  # temp hold input
-        Desired = np.zeros((1, self.Top[3]))
-        Output = np.zeros((1, self.Top[3]))
+        Desired = np.zeros((1, self.Top[2]))
+        Output = np.zeros((1, self.Top[2]))
         if phase == 1:
             Data = self.TestData
         if phase == 0:
@@ -179,10 +179,10 @@ class Network:
         testSize = Data.shape[0]
         self.W1 = self.BestW1
         self.W2 = self.BestW2  # load best knowledge
-        self.W3 = self.BestW3
+        # self.W3 = self.BestW3
         self.B1 = self.BestB1
         self.B2 = self.BestB2  # load best knowledge
-        self.B3 = self.BestB3
+        # self.B3 = self.BestB3
 
 
         for s in xrange(0, testSize):
@@ -201,10 +201,10 @@ class Network:
     def saveKnowledge(self):
         self.BestW1 = self.W1
         self.BestW2 = self.W2
-        self.BestW3 = self.W3
+        # self.BestW3 = self.W3
         self.BestB1 = self.B1
         self.BestB2 = self.B2
-        self.BestB3 = self.B3
+        # self.BestB3 = self.B3
 
     def plot_err(self, mse_lis, mad_lis, depth):
 
@@ -260,8 +260,8 @@ class Network:
                 sse = sse + self.sampleEr(Desired)
                 sad = sad + self.sampleAD(Desired)
 
-            mse = np.sqrt(sse / self.NumSamples * self.Top[3])
-            mad = sad / self.NumSamples * self.Top[3]
+            mse = np.sqrt(sse / self.NumSamples * self.Top[2])
+            mad = sad / self.NumSamples * self.Top[2]
 
             if mse < bestmse:
                 bestmse = mse
@@ -297,10 +297,10 @@ class Network:
     def transfer_weights(self, source):
         self.W1 = source.W1
         self.W2 = source.W2
-        self.W3 = source.W3
+        # self.W3 = source.W3
         self.B1 = source.B1
         self.B2 = source.B2
-        self.B3 = source.B3
+        # self.B3 = source.B3
 
 # --------------------------------------------------------------------------
 class MCMC:
@@ -311,14 +311,25 @@ class MCMC:
         self.testdata = testdata
         # ----------------
 
+    def softmax(self, fx):
+        ex = np.exp(fx)
+        sum_ex = np.sum(ex, axis = 1)
+        sum_ex = np.multiply(np.ones(ex.shape), sum_ex[:, np.newaxis])
+        prob = np.divide(ex, sum_ex)
+        return prob
+
     def rmse(self, predictions, targets):
         return np.sqrt(((predictions - targets) ** 2).mean())
 
     def likelihood_func(self, neuralnet, data, w, tausq):
-        y = data[:, self.topology[0]]
+        y = data[:, self.topology[0]:]
         fx = neuralnet.evaluate_proposal(data, w)
         rmse = self.rmse(fx, y)
-        loss = -0.5 * np.log(2 * math.pi * tausq) - 0.5 * np.square(y - fx) / tausq
+        prob = self.softmax(fx)
+        # print prob.shape
+        # loss = -0.5 * np.log(2 * math.pi * tausq) - 0.5 * np.square(y - fx) / tausq
+        loss = np.log(np.sum(np.multiply(prob, y), axis=1))
+        # print np.sum(loss)
         return [np.sum(loss), fx, rmse]
 
     def prior_likelihood(self, sigma_squared, nu_1, nu_2, w, tausq):
@@ -332,6 +343,8 @@ class MCMC:
     def sampler(self):
 
         # ------------------- initialize MCMC
+
+        start = time.time()
         testsize = self.testdata.shape[0]
         trainsize = self.traindata.shape[0]
         samples = self.samples
@@ -340,18 +353,18 @@ class MCMC:
         x_train = np.linspace(0, 1, num=trainsize)
 
         netw = self.topology  # [input, hidden, output]
-        y_test = self.testdata[:, netw[0]]
-        y_train = self.traindata[:, netw[0]]
-        print y_train.size
-        print y_test.size
+        y_test = self.testdata[:, netw[0]:]
+        y_train = self.traindata[:, netw[0]:]
+        # print y_train.size
+        # print y_test.size
 
         w_size = (netw[0] * netw[1]) + (netw[1] * netw[2]) + netw[1] + netw[2]  # num of weights and bias
 
         pos_w = np.ones((samples, w_size))  # posterior of all weights and bias over all samples
         pos_tau = np.ones((samples, 1))
 
-        fxtrain_samples = np.ones((samples, trainsize))  # fx of train data over all samples
-        fxtest_samples = np.ones((samples, testsize))  # fx of test data over all samples
+        fxtrain_samples = np.ones((samples, trainsize, self.topology[2]))  # fx of train data over all samples
+        fxtest_samples = np.ones((samples, testsize, self.topology[2]))  # fx of test data over all samples
         rmse_train = np.zeros(samples)
         rmse_test = np.zeros(samples)
 
@@ -363,7 +376,7 @@ class MCMC:
         # --------------------- Declare FNN and initialize
 
         neuralnet = Network(self.topology, self.traindata, self.testdata)
-        print 'evaluate Initial w'
+        # print 'evaluate Initial w'
 
         pred_train = neuralnet.evaluate_proposal(self.traindata, w)
         pred_test = neuralnet.evaluate_proposal(self.testdata, w)
@@ -380,17 +393,17 @@ class MCMC:
         [likelihood, pred_train, rmsetrain] = self.likelihood_func(neuralnet, self.traindata, w, tau_pro)
         [likelihood_ignore, pred_test, rmsetest] = self.likelihood_func(neuralnet, self.testdata, w, tau_pro)
 
-        print likelihood
+        # print likelihood
 
         naccept = 0
-        print 'begin sampling using mcmc random walk'
-        plt.plot(x_train, y_train)
-        plt.plot(x_train, pred_train)
-        plt.title("Plot of Data vs Initial Fx")
-        plt.savefig('mcmcresults/begin.png')
-        plt.clf()
+        # print 'begin sampling using mcmc random walk'
+        # plt.plot(x_train, y_train)
+        # plt.plot(x_train, pred_train)
+        # plt.title("Plot of Data vs Initial Fx")
+        # plt.savefig('mcmcresults/begin.png')
+        # plt.clf()
 
-        plt.plot(x_train, y_train)
+        # plt.plot(x_train, y_train)
 
         for i in range(samples - 1):
 
@@ -418,14 +431,18 @@ class MCMC:
 
             if u < mh_prob:
                 # Update position
-                print    i, ' is accepted sample'
+                # print    i, ' is accepted sample'
                 naccept += 1
                 likelihood = likelihood_proposal
                 prior_likelihood = prior_prop
                 w = w_proposal
                 eta = eta_pro
 
-                print  likelihood, prior_likelihood, rmsetrain, rmsetest, w, 'accepted'
+                print  i, likelihood, prior_likelihood, rmsetrain, rmsetest, 'accepted'
+                # print pred_train.shape
+                # print fxtrain_samples
+                # print(likelihood)
+                # print 'accepted'
 
                 pos_w[i + 1,] = w_proposal
                 pos_tau[i + 1,] = tau_pro
@@ -446,17 +463,23 @@ class MCMC:
                 rmse_test[i + 1,] = rmse_test[i,]
 
                 # print i, 'rejected and retained'
+            elapsed = convert_time(time.time() - start)
+            # sys.stdout.write('\rSamples: ' + str(i + 2) + "/" + str(samples) + " Time elapsed: " + str(elapsed[0]) + ":" + str(elapsed[1]))
 
-        print naccept, ' num accepted'
+            print naccept, ' num accepted'
         print naccept / (samples * 1.0), '% was accepted'
         accept_ratio = naccept / (samples * 1.0) * 100
-
-        plt.title("Plot of Accepted Proposals")
-        plt.savefig('mcmcresults/proposals.png')
-        plt.savefig('mcmcresults/proposals.svg', format='svg', dpi=600)
-        plt.clf()
+        # sys.stdout.write('\r'  + ' : 100% ' + " Time elapsed: "+str(elapsed[0])+":"+str(elapsed[1])))
+        # plt.title("Plot of Accepted Proposals")
+        # plt.savefig('mcmcresults/proposals.png')
+        # plt.savefig('mcmcresults/proposals.svg', format='svg', dpi=600)
+        # plt.clf()
 
         return (pos_w, pos_tau, fxtrain_samples, fxtest_samples, x_train, x_test, rmse_train, rmse_test, accept_ratio)
+
+
+
+
 
 # --------------------------------------------------------------------------
 
@@ -471,16 +494,101 @@ if __name__ == '__main__':
 
 
     input = 11
-    hidden1 = 90
-    hidden2 = 90
-    output = 4
-    topo = [input, hidden1, hidden2, output]
+    hidden = 94
+    output = 10
+    topology = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
-    lrate = 0.67
+    # lrate = 0.67
+
     etol_tr = 0.2
     etol = 0.6
     alpha = 0.1
 
     minepoch = 0
     maxepoch = 500
+
     traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
+
+
+    MinCriteria = 0.005  # stop when RMSE reaches MinCriteria ( problem dependent)
+
+    random.seed(time.time())
+
+    numSamples = 8000 # need to decide yourself
+
+    mcmc = MCMC(numSamples, traindata, testdata, topology)  # declare class
+
+    [pos_w, pos_tau, fx_train, fx_test, x_train, x_test, rmse_train, rmse_test, accept_ratio] = mcmc.sampler()
+    # print 'sucessfully sampled'
+    burnin = 0.1 * numSamples  # use post burn in samples
+
+    pos_w = pos_w[int(burnin):, ]
+    pos_tau = pos_tau[int(burnin):, ]
+
+    rmse_tr = np.mean(rmse_train[int(burnin):])
+    rmsetr_std = np.std(rmse_train[int(burnin):])
+
+    rmse_tes = np.mean(rmse_test[int(burnin):])
+    rmsetest_std = np.std(rmse_test[int(burnin):])
+
+    # print rmse_tr, rmsetr_std, rmse_tes, rmsetest_std
+
+    train_acc = []
+    test_acc = []
+
+    ytestdata = testdata[:, input:]
+    ytraindata = traindata[:, input:]
+
+    fx_train = fx_train[int(burnin):, :]
+    fx_test = fx_test[int(burnin):, :]
+
+
+    print ("Generating accuracies: ")
+    for fx in fx_train:
+        count = 0
+        for index in range(fx.shape[0]):
+            if np.allclose(fx[index], ytraindata[index], atol=etol):
+                count += 1
+        train_acc.append(float(count) / fx.shape[0] * 100)
+
+    for fx in fx_test:
+        count = 0
+        for index in range(fx.shape[0]):
+            if np.allclose(fx[index], ytestdata[index], atol=etol_tr):
+                count += 1
+        test_acc.append(float(count) / fx.shape[0] * 100)
+
+    print("Generating Plots: ")
+
+    # train_acc = np.array(train_acc[int(burnin):])
+    # train_std = np.std(train_acc[int(burnin):])
+    #
+    # test_acc = np.array(test_acc[int(burnin):])
+    # test_std = np.std(test_acc[int(burnin):])
+
+    # train_acc_mu = train_acc.mean()
+    # test_acc_mu = test_acc.mean()
+
+    ax = plt.subplot(111)
+    plt.plot(range(int(burnin), int(burnin) + len(train_acc)), train_acc, label="train")
+    plt.plot(range(int(burnin), int(burnin) + len(test_acc)), test_acc, label="test")
+
+    leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
+    leg.get_frame().set_alpha(0.5)
+
+    plt.xlabel('Samples')
+    plt.ylabel('Accuracy')
+    plt.title('Wine Quality-White Accuracy plot')
+    plt.savefig('accuracy-white.png')
+
+    plt.clf()
+
+
+    print "\n\n\n"
+    print "Train accuracy:\n"
+    print train_acc
+    print "Mean: "+ str(np.mean(train_acc))+ " Std: "+ str(train_std)
+    print "Test accuracy:\n"
+    print "Mean: "+ str(np.mean(test_acc))+ " Std: "+ str(test_std)
+
+

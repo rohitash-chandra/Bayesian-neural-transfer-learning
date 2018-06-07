@@ -6,13 +6,17 @@ from sklearn.cross_validation import train_test_split
 def getdata(file):
     data = np.genfromtxt(file, delimiter=';', skip_header=1)
     x = data[:, :-1]
-    yd = data[:, data.shape[1]-1].astype(int)
+    y = data[:, data.shape[1]-1].astype(int)
     #print data
-    y = np.zeros((yd.shape[0], 4))
+    yd = np.identity(10)
+    yd = np.vstack([[0 for i in range(10)], yd])
 
-    for index in xrange(yd.shape[0]):
-        y[index] = np.array(list(map(int, list(np.binary_repr(yd[index], width=4)))))
-        # print(y[index], yd[index])
+    y = yd[y, :]
+    # print(y)
+
+    # for index in xrange(yd.shape[0]):
+    #     y[index] = np.array(list(map(int, list(np.binary_repr(yd[index], width=4)))))
+    #     # print(y[index], yd[index])
 
     sc_X = StandardScaler()
     x1 = sc_X.fit_transform(x)
@@ -34,12 +38,14 @@ def testdata(file):
     #print yd
     j = 0
     for row in data:
+        flag = False
         for index in range(yd.shape[0]):
             if np.array_equal(row, yd[index]):
                 y[j] = index
                 j += 1
-                print str(row)+ " " + str(index)
-            #else: print 'no match' + str(row) 
+                flag = True
+                # print str(row)+ " " + str(index)
+        if not flag: print 'no match' + str(row)
 
 
 if __name__ == '__main__':
