@@ -1,5 +1,6 @@
 # !/usr/bin/python
-
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -10,6 +11,7 @@ import math
 import os
 import sys
 import pickle
+
 
 sys.path.insert(0, '/home/arpit/Projects/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
 from preprocess import getdata
@@ -328,16 +330,31 @@ class MCMC:
         prob = self.softmax(fx)
         # print prob.shape
         # loss = -0.5 * np.log(2 * math.pi * tausq) - 0.5 * np.square(y - fx) / tausq
-        loss = np.log(np.sum(np.multiply(prob, y), axis=1))
+        loss = 0
+        for i in range(y.shape[0]):
+            for j in range(y.shape[1]):
+                if y[i, j] == 1:
+                    loss += np.log(prob[i, j])
+
+        out = np.argmax(fx, axis=1)
+        y_out = np.argmax(y, axis=1)
+        count = 0
+        for i in range(y_out.shape[0]):
+            if out[i] == y_out[i]:
+                count += 1
+        acc = float(count)/y_out.shape[0] * 100
+        # print count
+        # loss = np.log(np.sum(np.multiply(prob, y), axis=1))
         # print np.sum(loss)
-        return [np.sum(loss), fx, rmse]
+        return [loss, fx, rmse, acc]
 
     def prior_likelihood(self, sigma_squared, nu_1, nu_2, w, tausq):
         h = self.topology[1]  # number hidden neurons
         d = self.topology[0]  # number input neurons
         part1 = -1 * ((d * h + h + 2) / 2) * np.log(sigma_squared)
         part2 = 1 / (2 * sigma_squared) * (sum(np.square(w)))
-        log_loss = part1 - part2 - (1 + nu_1) * np.log(tausq) - (nu_2 / tausq)
+        # log_loss = part1 - part2 - (1 + nu_1) * np.log(tausq) - (nu_2 / tausq)
+        log_loss = part1 - part2
         return log_loss
 
     def sampler(self):
@@ -351,6 +368,10 @@ class MCMC:
 
         x_test = np.linspace(0, 1, num=testsize)
         x_train = np.linspace(0, 1, num=trainsize)
+
+
+        train_acc = np.zeros((samples,))
+        test_acc = np.zeros((samples,))
 
         netw = self.topology  # [input, hidden, output]
         y_test = self.testdata[:, netw[0]:]
@@ -388,10 +409,13 @@ class MCMC:
         nu_1 = 0
         nu_2 = 0
 
-        prior_likelihood = self.prior_likelihood(sigma_squared, nu_1, nu_2, w, tau_pro)  # takes care of the gradients
+        prior = self.prior_likelihood(sigma_squared, nu_1, nu_2, w, tau_pro)  # takes care of the gradients
 
-        [likelihood, pred_train, rmsetrain] = self.likelihood_func(neuralnet, self.traindata, w, tau_pro)
-        [likelihood_ignore, pred_test, rmsetest] = self.likelihood_func(neuralnet, self.testdata, w, tau_pro)
+        [likelihood, pred_train, rmsetrain, trainacc] = self.likelihood_func(neuralnet, self.traindata, w, tau_pro)
+        [likelihood_ignore, pred_test, rmsetest, testacc] = self.likelihood_func(neuralnet, self.testdata, w, tau_pro)
+
+        train_acc[0] = trainacc
+        test_acc[0] = testacc
 
         # print likelihood
 
@@ -412,10 +436,12 @@ class MCMC:
             eta_pro = eta + np.random.normal(0, step_eta, 1)
             tau_pro = math.exp(eta_pro)
 
-            [likelihood_proposal, pred_train, rmsetrain] = self.likelihood_func(neuralnet, self.traindata, w_proposal,
+            [likelihood_proposal, pred_train, rmsetrain, trainacc] = self.likelihood_func(neuralnet, self.traindata, w_proposal,
                                                                                 tau_pro)
-            [likelihood_ignore, pred_test, rmsetest] = self.likelihood_func(neuralnet, self.testdata, w_proposal,
+            [likelihood_ignore, pred_test, rmsetest, testacc] = self.likelihood_func(neuralnet, self.testdata, w_proposal,
                                                                             tau_pro)
+
+            # print trainacc
 
             # likelihood_ignore  refers to parameter that will not be used in the alg.
 
@@ -423,9 +449,9 @@ class MCMC:
                                                tau_pro)  # takes care of the gradients
 
             diff_likelihood = likelihood_proposal - likelihood
-            diff_priorliklihood = prior_prop - prior_likelihood
+            diff_prior = prior_prop - prior
 
-            mh_prob = min(1, math.exp(diff_likelihood + diff_priorliklihood))
+            mh_prob = min(1, math.exp(diff_likelihood + diff_prior))
 
             u = random.uniform(0, 1)
 
@@ -438,7 +464,9 @@ class MCMC:
                 w = w_proposal
                 eta = eta_pro
 
-                print  i, likelihood, prior_likelihood, rmsetrain, rmsetest, 'accepted'
+                print i, trainacc
+
+                # print  i, likelihood, prior_likelihood, rmsetrain, rmsetest, 'accepted: ', naccept , trainacc, testacc
                 # print pred_train.shape
                 # print fxtrain_samples
                 # print(likelihood)
@@ -450,6 +478,8 @@ class MCMC:
                 fxtest_samples[i + 1,] = pred_test
                 rmse_train[i + 1,] = rmsetrain
                 rmse_test[i + 1,] = rmsetest
+                train_acc[i + 1] = trainacc
+                test_acc[i + 1] = testacc
 
                 plt.plot(x_train, pred_train)
 
@@ -461,13 +491,16 @@ class MCMC:
                 fxtest_samples[i + 1,] = fxtest_samples[i,]
                 rmse_train[i + 1,] = rmse_train[i,]
                 rmse_test[i + 1,] = rmse_test[i,]
+                train_acc[i + 1] = train_acc[i]
+                test_acc[i + 1] = test_acc[i]
+
 
                 # print i, 'rejected and retained'
             elapsed = convert_time(time.time() - start)
             # sys.stdout.write('\rSamples: ' + str(i + 2) + "/" + str(samples) + " Time elapsed: " + str(elapsed[0]) + ":" + str(elapsed[1]))
 
-            print naccept, ' num accepted'
-        print naccept / (samples * 1.0), '% was accepted'
+            # print naccept, ' num accepted'
+        print naccept / float(samples) * 100.0, '% was accepted'
         accept_ratio = naccept / (samples * 1.0) * 100
         # sys.stdout.write('\r'  + ' : 100% ' + " Time elapsed: "+str(elapsed[0])+":"+str(elapsed[1])))
         # plt.title("Plot of Accepted Proposals")
@@ -475,7 +508,7 @@ class MCMC:
         # plt.savefig('mcmcresults/proposals.svg', format='svg', dpi=600)
         # plt.clf()
 
-        return (pos_w, pos_tau, fxtrain_samples, fxtest_samples, x_train, x_test, rmse_train, rmse_test, accept_ratio)
+        return (pos_w, pos_tau, fxtrain_samples, fxtest_samples, x_train, x_test, rmse_train, rmse_test, train_acc, test_acc , accept_ratio)
 
 
 
@@ -494,7 +527,7 @@ if __name__ == '__main__':
 
 
     input = 11
-    hidden = 94
+    hidden = 102
     output = 10
     topology = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
@@ -514,11 +547,11 @@ if __name__ == '__main__':
 
     random.seed(time.time())
 
-    numSamples = 8000 # need to decide yourself
+    numSamples = 20000 # need to decide yourself
 
     mcmc = MCMC(numSamples, traindata, testdata, topology)  # declare class
 
-    [pos_w, pos_tau, fx_train, fx_test, x_train, x_test, rmse_train, rmse_test, accept_ratio] = mcmc.sampler()
+    [pos_w, pos_tau, fx_train, fx_test, x_train, x_test, rmse_train, rmse_test, train_acc, test_acc, accept_ratio] = mcmc.sampler()
     # print 'sucessfully sampled'
     burnin = 0.1 * numSamples  # use post burn in samples
 
@@ -533,30 +566,23 @@ if __name__ == '__main__':
 
     # print rmse_tr, rmsetr_std, rmse_tes, rmsetest_std
 
-    train_acc = []
-    test_acc = []
+    # train_acc = []
+    # test_acc = []
 
     ytestdata = testdata[:, input:]
     ytraindata = traindata[:, input:]
 
-    fx_train = fx_train[int(burnin):, :]
-    fx_test = fx_test[int(burnin):, :]
+    train_acc = train_acc[int(burnin):]
+    test_acc = test_acc[int(burnin):]
 
 
-    print ("Generating accuracies: ")
-    for fx in fx_train:
-        count = 0
-        for index in range(fx.shape[0]):
-            if np.allclose(fx[index], ytraindata[index], atol=etol):
-                count += 1
-        train_acc.append(float(count) / fx.shape[0] * 100)
-
-    for fx in fx_test:
-        count = 0
-        for index in range(fx.shape[0]):
-            if np.allclose(fx[index], ytestdata[index], atol=etol_tr):
-                count += 1
-        test_acc.append(float(count) / fx.shape[0] * 100)
+    print train_acc, test_acc
+    print "\n\n\n"
+    print "Train accuracy:\n"
+    print train_acc
+    print "Mean: "+ str(np.mean(train_acc))
+    print "Test accuracy:\n"
+    print "Mean: "+ str(np.mean(test_acc))
 
     print("Generating Plots: ")
 
@@ -570,25 +596,19 @@ if __name__ == '__main__':
     # test_acc_mu = test_acc.mean()
 
     ax = plt.subplot(111)
-    plt.plot(range(int(burnin), int(burnin) + len(train_acc)), train_acc, label="train")
-    plt.plot(range(int(burnin), int(burnin) + len(test_acc)), test_acc, label="test")
+    plt.plot(range(int(burnin), int(burnin) + len(train_acc)), train_acc, '.', label="train")
+    plt.plot(range(int(burnin), int(burnin) + len(test_acc)), test_acc, '.',  label="test")
 
+    
     leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
     leg.get_frame().set_alpha(0.5)
 
     plt.xlabel('Samples')
     plt.ylabel('Accuracy')
     plt.title('Wine Quality-White Accuracy plot')
-    plt.savefig('accuracy-white.png')
+    plt.savefig('accuracy-white-mcmc.png')
 
     plt.clf()
 
-
-    print "\n\n\n"
-    print "Train accuracy:\n"
-    print train_acc
-    print "Mean: "+ str(np.mean(train_acc))+ " Std: "+ str(train_std)
-    print "Test accuracy:\n"
-    print "Mean: "+ str(np.mean(test_acc))+ " Std: "+ str(test_std)
 
 
