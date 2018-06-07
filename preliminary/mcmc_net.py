@@ -131,26 +131,6 @@ class Network:
         w = np.concatenate([w1, w2, self.B1, self.B2])
         return w
 
-    def langevin_gradient(self, data, w, depth):  # BP with SGD (Stocastic BP)
-
-        self.decode(w)  # method to decode w into W1, W2, B1, B2.
-        size = data.shape[0]
-
-        Input = np.zeros((1, self.Top[0]))  # temp hold input
-        Desired = np.zeros((1, self.Top[2]))
-        fx = np.zeros(size)
-
-        for i in xrange(0, depth):
-            for i in xrange(0, size):
-                pat = i
-                Input = data[pat, 0:self.Top[0]]
-                Desired = data[pat, self.Top[0]:]
-                self.ForwardPass(Input)
-                self.BackwardPass(Input, Desired)
-
-        w_updated = self.encode()
-
-        return  w_updated
 
     def evaluate_proposal(self, data, w ):  # BP with SGD (Stocastic BP)
 
@@ -199,102 +179,6 @@ class Network:
                 clasPerf = clasPerf + 1
 
         return (sse / testSize, float(clasPerf) / testSize * 100)
-
-    def saveKnowledge(self):
-        self.BestW1 = self.W1
-        self.BestW2 = self.W2
-        # self.BestW3 = self.W3
-        self.BestB1 = self.B1
-        self.BestB2 = self.B2
-        # self.BestB3 = self.B3
-
-    def plot_err(self, mse_lis, mad_lis, depth):
-
-        ax = plt.subplot(111)
-        plt.plot(range(depth), mse_lis, label="mse")
-        plt.plot(range(depth), mad_lis, label="mad")
-
-        leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
-        leg.get_frame().set_alpha(0.5)
-
-        plt.xlabel('Epoch')
-        plt.ylabel('Mean Error')
-        plt.title(' Mean Error')
-        plt.savefig('error.png')
-
-    def BP_GD(self, stocastic, vanilla, depth):  # BP with SGD (Stocastic BP)
-        # self.momenRate = mRate
-        # self.NumSamples = numSamples
-
-        Input = np.zeros((1, self.Top[0]))  # temp hold input
-        Desired = np.zeros((1, self.Top[3]))
-        # Er = []#np.zeros((1, self.Max))
-        epoch = 0
-        bestmse = 100
-        bestmad = 100
-        bestTrain = 0
-
-        mad_lis = []
-        mse_lis = []
-
-        train_acc = []
-        test_acc = []
-        train_sse = []
-        test_sse = []
-
-        start = time.time()
-        # while  epoch < self.Max and bestTrain < self.minPerf :
-        while epoch < depth:
-            sse = 0
-            sad = 0
-            for s in xrange(0, self.NumSamples):
-
-                if (stocastic):
-                    pat = random.randint(0, self.NumSamples - 1)
-                else:
-                    pat = s
-
-                Input[:] = self.TrainData[pat, :self.Top[0]]
-                Desired[:] = self.TrainData[pat, self.Top[0]:]
-
-                self.ForwardPass(Input)
-                self.BackwardPass(Input, Desired)
-                sse = sse + self.sampleEr(Desired)
-                sad = sad + self.sampleAD(Desired)
-
-            mse = np.sqrt(sse / self.NumSamples * self.Top[2])
-            mad = sad / self.NumSamples * self.Top[2]
-
-            if mse < bestmse:
-                bestmse = mse
-                self.saveKnowledge()
-                (x, bestTrain) = self.TestNetwork(0, 0.2)
-
-            if mad < bestmad:
-                bestmad = mad
-
-            mse_lis.append(bestmse)
-            mad_lis.append(bestmad)
-
-            if epoch%10 == 0:
-                sse, acc = self.TestNetwork(phase=1, erTolerance=etol)
-                test_acc.append(acc)
-                test_sse.append(sse)
-
-                sse, acc = self.TestNetwork(phase=0, erTolerance=etol_tr)
-                train_acc.append(acc)
-                train_sse.append(sse)
-
-            elapsed = convert_time(time.time() - start)
-            # Er = np.append(Er, mse)
-            sys.stdout.write('\rEpoch: '+str(epoch+1)+"/"+ str(depth)+" mse: "+ str(mse) + " mad: " + str(mad) + " Time elapsed: "+str(elapsed[0])+":"+str(elapsed[1]))
-
-            epoch = epoch + 1
-
-        # self.plot_err(mse_lis, mad_lis, depth)
-
-        # return (mse, mad, bestmse, bestTrain, epoch)
-        return train_acc, test_acc
 
     def transfer_weights(self, source):
         self.W1 = source.W1
@@ -361,7 +245,7 @@ class MCMC:
 
         # ------------------- initialize MCMC
 
-        start = time.time()
+        # start = time.time()
         testsize = self.testdata.shape[0]
         trainsize = self.traindata.shape[0]
         samples = self.samples
@@ -417,31 +301,18 @@ class MCMC:
         train_acc[0] = trainacc
         test_acc[0] = testacc
 
-        # print likelihood
-
         naccept = 0
         # print 'begin sampling using mcmc random walk'
-        # plt.plot(x_train, y_train)
-        # plt.plot(x_train, pred_train)
-        # plt.title("Plot of Data vs Initial Fx")
-        # plt.savefig('mcmcresults/begin.png')
-        # plt.clf()
-
-        # plt.plot(x_train, y_train)
 
         for i in range(samples - 1):
 
             w_proposal = w + np.random.normal(0, step_w, w_size)
 
             eta_pro = eta + np.random.normal(0, step_eta, 1)
-            tau_pro = math.exp(eta_pro)
+            # tau_pro = math.exp(eta_pro)
 
-            [likelihood_proposal, pred_train, rmsetrain, trainacc] = self.likelihood_func(neuralnet, self.traindata, w_proposal,
-                                                                                tau_pro)
-            [likelihood_ignore, pred_test, rmsetest, testacc] = self.likelihood_func(neuralnet, self.testdata, w_proposal,
-                                                                            tau_pro)
-
-            # print trainacc
+            [likelihood_proposal, pred_train, rmsetrain, trainacc] = self.likelihood_func(neuralnet, self.traindata, w_proposal)
+            [likelihood_ignore, pred_test, rmsetest, testacc] = self.likelihood_func(neuralnet, self.testdata, w_proposal)
 
             # likelihood_ignore  refers to parameter that will not be used in the alg.
 
@@ -496,7 +367,7 @@ class MCMC:
 
 
                 # print i, 'rejected and retained'
-            elapsed = convert_time(time.time() - start)
+            # elapsed = convert_time(time.time() - start)
             # sys.stdout.write('\rSamples: ' + str(i + 2) + "/" + str(samples) + " Time elapsed: " + str(elapsed[0]) + ":" + str(elapsed[1]))
 
             # print naccept, ' num accepted'
