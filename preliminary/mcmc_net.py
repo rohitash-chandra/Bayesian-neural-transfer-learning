@@ -373,11 +373,6 @@ class MCMC:
             # print naccept, ' num accepted'
         print naccept / float(samples) * 100.0, '% was accepted'
         accept_ratio = naccept / (samples * 1.0) * 100
-        # sys.stdout.write('\r'  + ' : 100% ' + " Time elapsed: "+str(elapsed[0])+":"+str(elapsed[1])))
-        # plt.title("Plot of Accepted Proposals")
-        # plt.savefig('mcmcresults/proposals.png')
-        # plt.savefig('mcmcresults/proposals.svg', format='svg', dpi=600)
-        # plt.clf()
 
         return (pos_w, pos_tau, fxtrain_samples, fxtest_samples, x_train, x_test, rmse_train, rmse_test, train_acc, test_acc , accept_ratio)
 

@@ -6,6 +6,8 @@ from sklearn.cross_validation import train_test_split
 def getdata(file):
     data = np.genfromtxt(file, delimiter=';', skip_header=1)
     x = data[:, :-1]
+    x = np.delete(x, np.s_[5:10:4], axis=1)
+    x = np.delete(x, np.s_[2:4:], axis=1)
     y = data[:, data.shape[1]-1].astype(int)
     #print data
     yd = np.identity(10)
@@ -55,8 +57,8 @@ if __name__ == '__main__':
         np.savetxt(data+'-train.csv', train, delimiter = ',')
         np.savetxt(data+'-test.csv', test, delimiter = ',')
     
-        print "Testing Train data:\n"
-        testdata(data+'-train.csv')
-
-        print "Testing Test data:\n"
-        testdata(data+'-test.csv')
+        # print "Testing Train data:\n"
+        # testdata(data+'-train.csv')
+        #
+        # print "Testing Test data:\n"
+        # testdata(data+'-test.csv')
