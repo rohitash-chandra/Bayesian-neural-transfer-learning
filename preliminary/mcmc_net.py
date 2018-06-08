@@ -13,8 +13,8 @@ import sys
 import pickle
 
 
-sys.path.insert(0, '/home/arpit/Projects/Bayesian-neural-transfer-learning/preliminary/WineQualityDataset/preprocess/')
-from preprocess import getdata
+sys.path.insert(0, '/home/arpit/Projects/Bayesian-neural-transfer-learning/preliminary/Iris/')
+from preprocess_iris import getdata
 
 def convert_time(secs):
     if secs >= 60:
@@ -311,8 +311,8 @@ class MCMC:
             eta_pro = eta + np.random.normal(0, step_eta, 1)
             # tau_pro = math.exp(eta_pro)
 
-            [likelihood_proposal, pred_train, rmsetrain, trainacc] = self.likelihood_func(neuralnet, self.traindata, w_proposal)
-            [likelihood_ignore, pred_test, rmsetest, testacc] = self.likelihood_func(neuralnet, self.testdata, w_proposal)
+            [likelihood_proposal, pred_train, rmsetrain, trainacc] = self.likelihood_func(neuralnet, self.traindata, w_proposal, tau_pro)
+            [likelihood_ignore, pred_test, rmsetest, testacc] = self.likelihood_func(neuralnet, self.testdata, w_proposal, tau_pro)
 
             # likelihood_ignore  refers to parameter that will not be used in the alg.
 
@@ -392,9 +392,9 @@ def pickle_knowledge(obj, pickle_file):
 if __name__ == '__main__':
 
 
-    input = 11
-    hidden = 102
-    output = 10
+    input = 4
+    hidden = 6
+    output = 3
     topology = [input, hidden, output]
     # print(traindata.shape, testdata.shape)
     # lrate = 0.67
@@ -403,17 +403,14 @@ if __name__ == '__main__':
     etol = 0.6
     alpha = 0.1
 
-    minepoch = 0
-    maxepoch = 500
-
-    traindata, testdata = getdata('WineQualityDataset/winequality-white.csv')
+    traindata, testdata = getdata('Iris/iris.csv', input)
 
 
     MinCriteria = 0.005  # stop when RMSE reaches MinCriteria ( problem dependent)
 
     random.seed(time.time())
 
-    numSamples = 20000 # need to decide yourself
+    numSamples = 8000# need to decide yourself
 
     mcmc = MCMC(numSamples, traindata, testdata, topology)  # declare class
 
@@ -438,8 +435,8 @@ if __name__ == '__main__':
     ytestdata = testdata[:, input:]
     ytraindata = traindata[:, input:]
 
-    train_acc = train_acc[int(burnin):]
-    test_acc = test_acc[int(burnin):]
+    # train_acc = train_acc[int(burnin):]
+    # test_acc = test_acc[int(burnin):]
 
 
     print train_acc, test_acc
@@ -462,8 +459,8 @@ if __name__ == '__main__':
     # test_acc_mu = test_acc.mean()
 
     ax = plt.subplot(111)
-    plt.plot(range(int(burnin), int(burnin) + len(train_acc)), train_acc, '.', label="train")
-    plt.plot(range(int(burnin), int(burnin) + len(test_acc)), test_acc, '.',  label="test")
+    plt.plot(range(len(train_acc)), train_acc, '.', label="train")
+    plt.plot(range(len(test_acc)), test_acc, '.', label="test")
 
     
     leg = plt.legend(loc='best', ncol=2, mode="expand", shadow=True, fancybox=True)
@@ -471,8 +468,8 @@ if __name__ == '__main__':
 
     plt.xlabel('Samples')
     plt.ylabel('Accuracy')
-    plt.title('Wine Quality-White Accuracy plot')
-    plt.savefig('accuracy-white-mcmc.png')
+    plt.title('Iris Accuracy plot')
+    plt.savefig('accuracy-iris-mcmc.png')
 
     plt.clf()
 
